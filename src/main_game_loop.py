@@ -6,140 +6,7 @@ import math  # Para cálculos matemáticos, como ângulos e distância
 from src.entities.ball import Bola # << IMPORTAR A NOSSA BOLA
 import random # Já estávamos usando para o chute aleatório da bola
 from src.entities.player import Player # << IMPORTAR O JOGADOR
-
-def desenhar_quadra(tela):
-    """
-    Função placeholder para desenhar a quadra.
-    Vamos implementá-la em breve.
-    """
-    # Por enquanto, apenas um fundo para sabermos que está funcionando
-    # A cor da quadra será definida dentro desta função quando a implementarmos.
-    pass
-
-def rodar_jogo():
-
-    pygame.init()
-    tela = pygame.display.set_mode((config.LARGURA_TELA, config.ALTURA_TELA))
-    pygame.display.set_caption(config.TITULO_JANELA)
-    relogio = pygame.time.Clock()
-
-    quadra_rect_jogavel = pygame.Rect(
-        config.MARGEM_QUADRA + config.ESPESSURA_LINHA,
-        config.MARGEM_QUADRA + config.ESPESSURA_LINHA,
-        config.LARGURA_TELA - 2 * (config.MARGEM_QUADRA + config.ESPESSURA_LINHA),
-        config.ALTURA_TELA - 2 * (config.MARGEM_QUADRA + config.ESPESSURA_LINHA)
-    )
-
-    raio_bola_cfg = 10
-    cor_bola_cfg = config.BRANCO # Ou uma cor específica para a bola
-    bola = Bola(
-        x = config.LARGURA_TELA / 2,
-        y = config.ALTURA_TELA / 2,
-        raio = raio_bola_cfg,
-        cor = cor_bola_cfg
-    )
-    
-    # Criar um jogador de teste
-    raio_jogador_cfg = 15
-    cor_jogador_time_a_cfg = (0, 0, 255) # Azul para time A
-    cor_jogador_time_b_cfg = (255, 0, 0) # Vermelho para time B
-
-    jogador1 = Player(
-        x = config.LARGURA_TELA * 0.25, # Posição inicial no campo de ataque esquerdo
-        y = config.ALTURA_TELA / 2,
-        raio = raio_jogador_cfg,
-        cor = cor_jogador_time_a_cfg,
-        time = "A"
-    )
-
-    jogador2 = Player( # Um segundo jogador para teste, do outro time
-        x = config.LARGURA_TELA * 0.75, # Posição inicial no campo de ataque direito
-        y = config.ALTURA_TELA / 2,
-        raio = raio_jogador_cfg,
-        cor = cor_jogador_time_b_cfg,
-        time = "B"
-    )
-
-    lista_jogadores = [jogador1, jogador2] # Uma lista para facilitar o gerenciamento
-
-    # Para teste inicial, vamos dar um chute na bola
-    bola.chutar(5, 3) # Chuta com velocidade (5, 3) pixels/frame
-    tempo_bola_parada = 0
-    TEMPO_MAX_PARADA_DEBUG = 120 # 2 segundos a 60 FPS
-
-    rodando = True
-    while rodando:
-        jogador1_vx, jogador1_vy = 0, 0
-        acao_chute_jogador1 = False
-
-        # --- Tratamento de Eventos ---
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                rodando = False
-            if evento.type == pygame.KEYDOWN: # Evento de tecla pressionada UMA VEZ
-                if evento.key == pygame.K_SPACE: # Tecla de Espaço para chutar
-                    acao_chute_jogador1 = True
-            
-        # --- Input do Teclado (para controlar jogador1) ---
-        teclas = pygame.key.get_pressed() # Pega o estado de todas as teclas
-        if teclas[pygame.K_LEFT]:
-            jogador1_vx = -jogador1.velocidade_max
-        if teclas[pygame.K_RIGHT]:
-            jogador1_vx = jogador1.velocidade_max
-        if teclas[pygame.K_UP]:
-            jogador1_vy = -jogador1.velocidade_max
-        if teclas[pygame.K_DOWN]:
-            jogador1_vy = jogador1.velocidade_max
-        
-        # Definir a velocidade do jogador1 com base no input
-        jogador1.set_velocidade(jogador1_vx, jogador1_vy)
-
-        # --- Lógica do Jogo ---
-        for jogador_atualizar in lista_jogadores:
-            jogador_atualizar.atualizar_posicao(quadra_rect_jogavel)
-
-        # Interação Jogador-Bola
-        if not bola.controlada_por_jogador: # Se a bola está livre
-            for jogador_interagir in lista_jogadores:
-                if jogador_interagir.verificar_pegar_bola(bola):
-                    break # Só um jogador pega a bola por vez
-        
-        # Ação de Chute do Jogador 1 (controlado manualmente)
-        if acao_chute_jogador1 and jogador1.tem_bola:
-            jogador1.chutar_bola(bola) # Passamos a referência da bola para o jogador chutar
-
-        # Lógica da bola (mover se não controlada, ou se controlada, sua posição é atualizada em ser_controlada/mover)
-        status_bola = None
-        if not bola.controlada_por_jogador and bola.esta_em_jogo:
-            status_bola = bola.mover(quadra_rect_jogavel)
-        elif bola.controlada_por_jogador: # Se controlada, atualiza sua posição para seguir o jogador
-            bola.mover(quadra_rect_jogavel) # O mover da bola agora sabe lidar com isso
-
-        if status_bola: # Se a bola saiu (e não estava controlada)
-            tempo_bola_parada = 0
-        elif not bola.esta_em_jogo and not bola.controlada_por_jogador: # Bola saiu e não foi resetada ainda
-            tempo_bola_parada += 1
-            if tempo_bola_parada > TEMPO_MAX_PARADA_DEBUG:
-                bola.resetar_para_jogo(config.LARGURA_TELA / 2, config.ALTURA_TELA / 2)
-                # bola.chutar(random.choice([-5, 5]), random.choice([-3, 3])) # Não chuta mais automaticamente ao resetar
-                tempo_bola_parada = 0
-
-        # --- Desenho na Tela ---
-        tela.fill(config.AZUL_QUADRA)  # Preenche a tela com a cor da quadra
-        desenhar_quadra(tela) # Chamaremos nossa função para desenhar as linhas aqui
-
-        for jogador in lista_jogadores: # Desenhar cada jogador
-            jogador.desenhar(tela)
-
-        bola.desenhar(tela) 
-
-        pygame.display.flip()  # Atualiza o conteúdo da tela inteira
-
-        # --- Controle de FPS ---
-        relogio.tick(config.FPS)
-
-    pygame.quit()
-    # sys.exit() # Descomente se precisar garantir que o programa feche em todas as plataformas
+from src.game_core.game_manager import GameManager # << IMPORTAR
 
 def desenhar_quadra(tela):
     """
@@ -214,5 +81,142 @@ def desenhar_quadra(tela):
 
 # Para garantir que o jogo rode quando este arquivo é executado diretamente
 # (será chamado pelo run_game.py, mas é bom para testes diretos)
+
+
+def rodar_jogo():
+    pygame.init()
+    pygame.font.init() # Inicializa o módulo de fontes
+
+    tela = pygame.display.set_mode((config.LARGURA_TELA, config.ALTURA_TELA))
+    pygame.display.set_caption(config.TITULO_JANELA)
+    relogio = pygame.time.Clock()
+
+    # Definição da área jogável interna da quadra
+    quadra_rect_jogavel = pygame.Rect(
+        config.MARGEM_QUADRA + config.ESPESSURA_LINHA,
+        config.MARGEM_QUADRA + config.ESPESSURA_LINHA,
+        config.LARGURA_TELA - 2 * (config.MARGEM_QUADRA + config.ESPESSURA_LINHA),
+        config.ALTURA_TELA - 2 * (config.MARGEM_QUADRA + config.ESPESSURA_LINHA)
+    )
+
+    # Coordenadas Y da "boca do gol" para detecção de gol
+    # (Usando a altura interna da quadra para calcular a altura da boca do gol)
+    altura_interna_quadra_para_gol = config.ALTURA_TELA - 2 * config.MARGEM_QUADRA
+    altura_boca_gol_logica = altura_interna_quadra_para_gol * 0.20
+    
+    gol_post_superior_y = (config.ALTURA_TELA / 2) - (altura_boca_gol_logica / 2)
+    gol_post_inferior_y = gol_post_superior_y + altura_boca_gol_logica
+
+    # Criação da Bola
+    raio_bola_cfg = 10 # Pode vir de config.py
+    cor_bola_cfg = config.BRANCO # Pode vir de config.py
+    bola = Bola(config.LARGURA_TELA / 2, config.ALTURA_TELA / 2, raio_bola_cfg, cor_bola_cfg)
+    
+    # Criação dos Jogadores e suas posições iniciais
+    raio_jogador_cfg = 15 # Pode vir de config.py
+    cor_jogador_time_a_cfg = (0, 0, 255) # Time A - Azul
+    cor_jogador_time_b_cfg = (255, 0, 0) # Time B - Vermelho
+
+    pos_inicial_j1 = (config.LARGURA_TELA * 0.35, config.ALTURA_TELA / 2) # Um pouco mais perto do centro
+    pos_inicial_j2 = (config.LARGURA_TELA * 0.65, config.ALTURA_TELA / 2) # Um pouco mais perto do centro
+
+    jogador1 = Player(pos_inicial_j1[0], pos_inicial_j1[1], raio_jogador_cfg, cor_jogador_time_a_cfg, "A", controlado_por_ia=True)
+    jogador2 = Player(pos_inicial_j2[0], pos_inicial_j2[1], raio_jogador_cfg, cor_jogador_time_b_cfg, "B", controlado_por_ia=True)
+    lista_jogadores = [jogador1, jogador2]
+
+    posicoes_iniciais_para_gm = {
+        jogador1: pos_inicial_j1,
+        jogador2: pos_inicial_j2
+    }
+
+    # Instanciar o GameManager
+    game_manager = GameManager(bola, lista_jogadores, posicoes_iniciais_para_gm)
+
+    # Fonte para o placar
+    try:
+        fonte_placar = pygame.font.SysFont("arial", 28, bold=True)
+    except pygame.error: # Fallback se a fonte não existir
+        fonte_placar = pygame.font.Font(None, 36) # Fonte padrão do Pygame
+
+    rodando = True
+    while rodando:
+        # --- Tratamento de Eventos ---
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                rodando = False
+            # (Aqui poderiam entrar eventos para pausar o jogo, etc., controlados pelo GameManager)
+
+        # --- Atualizar Estado do GameManager ---
+        game_manager.atualizar_estado() # Controla timers e transições de estado (ex: GOL_MARCADO -> PREPARANDO_SAQUE)
+
+        # --- Lógica do Jogo (Só executa se o estado for "JOGANDO") ---
+        if game_manager.obter_estado_jogo() == config.ESTADO_JOGANDO:
+            # Atualizar IA e Posição dos Jogadores
+            for jogador_atualizar in lista_jogadores:
+                if jogador_atualizar.controlado_por_ia:
+                    jogador_atualizar.atualizar_cerebro_ia(bola, quadra_rect_jogavel)
+                jogador_atualizar.atualizar_posicao(quadra_rect_jogavel)
+
+            # Interação Jogador-Bola (tentativa de pegar/roubar)
+            if not bola.controlada_por_jogador: # Se a bola está livre
+                for jogador_interagir in lista_jogadores:
+                    if jogador_interagir.verificar_pegar_bola(bola):
+                        break # Só um jogador pega a bola por vez
+            
+            # Movimentação da Bola
+            status_bola = None # Para armazenar se saiu ou foi gol
+            if bola.esta_em_jogo: # Se a bola está marcada como "em jogo"
+                # O método mover da bola agora lida internamente se está controlada ou livre
+                status_bola = bola.mover(quadra_rect_jogavel, gol_post_superior_y, gol_post_inferior_y)
+            
+            # Verificar Resultado do Movimento da Bola
+            if status_bola: # Se 'mover' retornou algo (saiu ou foi gol)
+                if "GOL_ESQUERDA" in status_bola: # Time B marcou
+                    game_manager.registrar_gol("B")
+                elif "GOL_DIREITA" in status_bola: # Time A marcou
+                    game_manager.registrar_gol("A")
+                elif "fundo" in status_bola or "lateral" in status_bola:
+                    # Bola saiu por lateral/fundo (não foi gol)
+                    # O GameManager precisaria de lógica para quem repõe e como.
+                    # Por agora, o jogo vai "parar" pois o estado do GM não muda para JOGANDO
+                    # até que algo (como um gol) chame preparar_saque_centro().
+                    # Ou, para continuar o teste de IA, podemos forçar um reinício:
+                    print(f"Bola saiu ({status_bola}). Próximo saque será preparado pelo GameManager em breve (após um gol).")
+                    # Se quiser que o jogo continue para teste de IA mesmo com laterais/fundo:
+                    # game_manager.quem_saca = "A" if "direita" in status_bola or "superior" in status_bola else "B" # Exemplo simples
+                    # game_manager.preparar_saque_centro()
+
+
+        # --- Desenho na Tela ---
+        tela.fill(config.AZUL_QUADRA)
+        desenhar_quadra(tela)
+
+        for jogador_desenhar in lista_jogadores:
+            jogador_desenhar.desenhar(tela)
+        
+        # Só desenha a bola se ela não estiver "invisível" (ex: após sair e antes de resetar)
+        # A lógica atual de bola.esta_em_jogo e bola.controlada_por_jogador deve cuidar disso
+        # Se GameManager.estado_jogo != GOL_MARCADO (para a bola sumir durante a "comemoração")
+        if game_manager.obter_estado_jogo() != config.ESTADO_GOL_MARCADO or (game_manager.timer_estado_gol % 30 < 15) : # Pisca a bola no estado GOL
+            bola.desenhar(tela)
+
+        # Desenhar Placar
+        placar_surface = fonte_placar.render(game_manager.obter_placar_formatado(), True, config.BRANCO)
+        pos_placar_x = config.LARGURA_TELA / 2 - placar_surface.get_width() / 2
+        tela.blit(placar_surface, (pos_placar_x, 10))
+
+        # Desenhar Estado do Jogo (para debug)
+        estado_surface = fonte_placar.render(f"Estado: {game_manager.obter_estado_jogo()}", True, config.BRANCO)
+        pos_estado_x = config.LARGURA_TELA / 2 - estado_surface.get_width() / 2
+        tela.blit(estado_surface, (pos_estado_x, 40))
+
+
+        pygame.display.flip()
+        relogio.tick(config.FPS)
+
+    pygame.quit()
+
+
+
 if __name__ == '__main__':
     rodar_jogo()

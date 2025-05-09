@@ -15,41 +15,42 @@ class Bola:
         self.esta_em_jogo = True # Novo atributo para controlar se a bola está jogável
         self.controlada_por_jogador = None # Novo: referência ao jogador que a controla
 
+                # Novos atributos para o "cooldown" de posse
+        self.frames_desde_nova_posse = 0
+        self.FRAMES_INVULNERABILIDADE_POSSE = 15 # Ex: 15 frames (0.25s a 60FPS) de posse "segura"
+
     def ser_controlada(self, jogador):
-        """Define que a bola está sendo controlada por um jogador."""
         self.controlada_por_jogador = jogador
-        self.esta_em_jogo = True # Garante que está em jogo ao ser controlada
+        self.esta_em_jogo = True
         self.velocidade_x = 0
         self.velocidade_y = 0
+        self.frames_desde_nova_posse = 0 # Reseta o contador quando um novo jogador pega
+        print(f"BOLA: Controlada por {jogador.time}. Frames posse resetado.") # DEBUG
 
     def deixar_ser_controlada(self):
-        """Libera a bola do controle do jogador."""
-        if self.controlada_por_jogador:
-             # Posiciona a bola ligeiramente à frente do jogador ao ser solta/chutada
-             # (Simples: na direção do gol adversário)
-             offset_chute = self.controlada_por_jogador.raio + self.raio + 2 # Pequeno espaço
-             direcao_x = 1 if self.controlada_por_jogador.time == "A" else -1
-             self.x = self.controlada_por_jogador.x + (direcao_x * offset_chute)
-             self.y = self.controlada_por_jogador.y # Mantém o Y do jogador
         self.controlada_por_jogador = None
+        # print("BOLA: Deixou de ser controlada.") # DEBUG
 
-    def mover(self, quadra_rect):
-
+    def mover(self, quadra_rect, gol_y_sup, gol_y_inf):
         if self.controlada_por_jogador:
-            # Bola acompanha o jogador (ex: na frente dele)
-            # Simples: um pouco à frente na direção do gol adversário
-            offset_bola_x = self.controlada_por_jogador.raio + self.raio -2 # Quase colada
-            direcao_x = 1 if self.controlada_por_jogador.time == "A" else -1
-            
-            self.x = self.controlada_por_jogador.x + (direcao_x * offset_bola_x)
-            self.y = self.controlada_por_jogador.y # Bola acompanha o Y do jogador
-            return None # Não verifica saída de campo enquanto controlada
+            self.frames_desde_nova_posse += 1 # Incrementa o tempo que o jogador atual tem a posse
 
-        if not self.esta_em_jogo:
-            self.velocidade_x = 0 # Garante que a bola parada não ganhe velocidade por atrito residual
+            offset_bola_x = self.controlada_por_jogador.raio + self.raio - 2
+            direcao_x_posse = 1 if self.controlada_por_jogador.time == "A" else -1
+            self.x = self.controlada_por_jogador.x + (direcao_x_posse * offset_bola_x)
+            self.y = self.controlada_por_jogador.y
+            self.velocidade_x = 0
             self.velocidade_y = 0
-            return None # Não faz nada se a bola já está fora de jogo
+            self.esta_em_jogo = True
+            return None
 
+        # Se não está controlada, segue a lógica de bola livre:
+        if not self.esta_em_jogo:
+            self.velocidade_x = 0
+            self.velocidade_y = 0
+            return None
+
+        # Movimento da bola livre (como você já tinha)
         self.x += self.velocidade_x
         self.y += self.velocidade_y
 
@@ -59,33 +60,48 @@ class Bola:
         if abs(self.velocidade_x) < 0.1: self.velocidade_x = 0
         if abs(self.velocidade_y) < 0.1: self.velocidade_y = 0
 
-        # Verificar qual limite foi atingido
         saiu_por = None
 
-        saiu_por = None
+        # Bola cruzou a linha de fundo ESQUERDA
         if self.x - self.raio <= quadra_rect.left:
-            self.x = quadra_rect.left + self.raio
+            self.esta_em_jogo = False
             self.velocidade_x = 0; self.velocidade_y = 0
-            self.esta_em_jogo = False; saiu_por = "fundo_esquerda"
+            if self.y > gol_y_sup and self.y < gol_y_inf: # GOL
+                saiu_por = "GOL_ESQUERDA"
+                self.x = quadra_rect.left - self.raio # Bola um pouco dentro do gol
+            else: # Fundo
+                saiu_por = "fundo_esquerda"
+                self.x = quadra_rect.left + self.raio
+        
+        # Bola cruzou a linha de fundo DIREITA
         elif self.x + self.raio >= quadra_rect.right:
-            self.x = quadra_rect.right - self.raio
+            self.esta_em_jogo = False
             self.velocidade_x = 0; self.velocidade_y = 0
-            self.esta_em_jogo = False; saiu_por = "fundo_direita"
+            if self.y > gol_y_sup and self.y < gol_y_inf: # GOL
+                saiu_por = "GOL_DIREITA"
+                self.x = quadra_rect.right + self.raio
+            else: # Fundo
+                saiu_por = "fundo_direita"
+                self.x = quadra_rect.right - self.raio
 
-        # Usar 'if' em vez de 'elif' para permitir saídas de canto
-        if self.y - self.raio <= quadra_rect.top:
-            self.y = quadra_rect.top + self.raio
-            self.velocidade_x = 0; self.velocidade_y = 0
-            self.esta_em_jogo = False
-            saiu_por = "lateral_superior" if saiu_por is None else f"{saiu_por}_e_lateral_superior"
-        elif self.y + self.raio >= quadra_rect.bottom:
-            self.y = quadra_rect.bottom - self.raio
-            self.velocidade_x = 0; self.velocidade_y = 0
-            self.esta_em_jogo = False
-            saiu_por = "lateral_inferior" if saiu_por is None else f"{saiu_por}_e_lateral_inferior"
+        # Colisão com linha lateral
+        if self.esta_em_jogo: 
+            if self.y - self.raio <= quadra_rect.top:
+                self.y = quadra_rect.top + self.raio
+                self.velocidade_x = 0; self.velocidade_y = 0
+                self.esta_em_jogo = False
+                saiu_por = "lateral_superior" if saiu_por is None else f"{saiu_por}_e_lateral_superior"
+            elif self.y + self.raio >= quadra_rect.bottom:
+                self.y = quadra_rect.bottom - self.raio
+                self.velocidade_x = 0; self.velocidade_y = 0
+                self.esta_em_jogo = False
+                saiu_por = "lateral_inferior" if saiu_por is None else f"{saiu_por}_e_lateral_inferior"
 
         if saiu_por:
-            print(f"Bola saiu por: {saiu_por}") # DEBUG
+            if "GOL" in saiu_por:
+                print(f"GOOOOLLL!!! {saiu_por}")
+            else:
+                print(f"Bola saiu por: {saiu_por}")
             return saiu_por
         return None
 
@@ -97,13 +113,12 @@ class Bola:
         self.velocidade_y = forca_y
 
     def resetar_para_jogo(self, x, y):
-        """ Recoloca a bola em jogo em uma nova posição. """
-        self.x = float(x)
-        self.y = float(y)
-        self.velocidade_x = 0.0
-        self.velocidade_y = 0.0
+        self.x = float(x); self.y = float(y)
+        self.velocidade_x = 0.0; self.velocidade_y = 0.0
         self.esta_em_jogo = True
-        print(f"Bola resetada para ({self.x}, {self.y}) e em jogo.") # DEBUG
+        self.controlada_por_jogador = None
+        self.frames_desde_nova_posse = 0 # Reseta aqui também
+        print(f"Bola resetada para ({self.x}, {self.y}) e em jogo.")
 
     def desenhar(self, tela):
         pygame.draw.circle(tela, self.cor, (int(self.x), int(self.y)), self.raio)

@@ -27,3 +27,9 @@ FPS = 60
 
 # --- Título da Janela ---
 TITULO_JANELA = "Simulador de Futsal AI (Alpha)"
+
+# --- Estados do Jogo ---
+ESTADO_PREPARANDO_SAQUE = "preparando_saque"
+ESTADO_JOGANDO = "jogando"
+ESTADO_GOL_MARCADO = "gol_marcado"
+ESTADO_FIM_DE_JOGO = "fim_de_jogo" # Para o futuro
